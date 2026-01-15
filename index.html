@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GROVE GEAR CASHFLOW</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #app-shell { display: none; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="login-screen" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[100]">
+        <div class="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-sm text-center border border-slate-100">
+            <img src="GROVE_GEAR_LOGO.png" alt="Logo" class="w-32 h-32 mx-auto mb-6 object-contain">
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tighter">Grove Gear</h2>
+            <p class="text-slate-400 text-[10px] mt-1 mb-8 font-bold tracking-[0.2em]">FINANCIAL SYSTEM</p>
+            
+            <form id="login-form" class="space-y-4">
+                <input type="password" id="pass-input" class="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-emerald-500 transition text-center font-bold" placeholder="PIN AKSES" required>
+                <button type="submit" class="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-emerald-700 transition">MASUK SISTEM</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-shell">
+        <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <img src="GROVE_GEAR_LOGO.png" class="w-10 h-10 object-contain">
+                    <span class="text-xl font-black tracking-tighter text-slate-900 uppercase">GROVE GEAR</span>
+                </div>
+                
+                <div class="hidden md:flex space-x-1 bg-slate-100 p-1.5 rounded-2xl">
+                    <button id="btn-dashboard" onclick="openTab('dashboard')" class="tab-link px-5 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm">Dashboard</button>
+                    <button id="btn-input-modal" onclick="openTab('input-modal')" class="tab-link px-5 py-2.5 rounded-xl text-xs font-bold transition-all">Modal & Jual</button>
+                    <button id="btn-keuangan" onclick="openTab('keuangan')" class="tab-link px-5 py-2.5 rounded-xl text-xs font-bold transition-all">Kas & Gaji</button>
+                    <button id="btn-riwayat" onclick="openTab('riwayat')" class="tab-link px-5 py-2.5 rounded-xl text-xs font-bold transition-all">Database</button>
+                </div>
+                <button onclick="handleLogout()" class="text-red-500 font-black text-xs uppercase">Logout</button>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-6 py-10">
+            <div id="dashboard" class="tab-content active space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo Kas Aktif</p>
+                        <p class="text-2xl font-black text-slate-900" id="display-atm">Rp 0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Modal</p>
+                        <p class="text-2xl font-black text-orange-500" id="display-modal">Rp 0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] border border-emerald-100 bg-emerald-50/20 shadow-sm">
+                        <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Profit Bersih</p>
+                        <p class="text-2xl font-black text-emerald-700" id="display-profit">Rp 0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Omzet</p>
+                        <p class="text-2xl font-black text-indigo-600" id="display-omzet">Rp 0</p>
+                    </div>
+                </div>
+                <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                    <div class="h-[300px]"><canvas id="financeChart"></canvas></div>
+                </div>
+            </div>
+
+            <div id="input-modal" class="tab-content">
+                <div class="max-w-2xl mx-auto bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl">
+                    <h2 class="text-xl font-black mb-8 uppercase text-center">Input Penjualan Produk</h2>
+                    <form id="form-penjualan" class="space-y-4">
+                        <input type="text" id="p-nama" class="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none" placeholder="Nama Produk" required>
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="number" id="p-modal" oninput="hitungProyeksi()" class="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none" placeholder="Modal/Unit" required>
+                            <input type="number" id="p-qty" oninput="hitungProyeksi()" class="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none" placeholder="Qty" required>
+                        </div>
+                        <input type="number" id="p-jual" oninput="hitungProyeksi()" class="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl outline-none" placeholder="Harga Jual/Unit" required>
+                        <div class="p-6 bg-emerald-50 rounded-2xl text-emerald-700 font-bold flex justify-between items-center border border-emerald-100">
+                            <span class="text-xs uppercase tracking-widest">Estimasi Profit:</span>
+                            <span id="proj-profit" class="text-xl font-black">Rp 0</span>
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black shadow-lg">SIMPAN TRANSAKSI</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="keuangan" class="tab-content space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                        <h3 class="font-black text-emerald-600 mb-6 uppercase">Uang Masuk / Kas</h3>
+                        <div class="space-y-3">
+                            <select id="kas-in-type" class="w-full bg-slate-50 p-4 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-500">
+                                <option value="DEPO_ATM">Setoran Modal (+)</option>
+                                <option value="LAINNYA">Pendapatan Lain (+)</option>
+                            </select>
+                            <input type="number" id="kas-in-amt" class="w-full bg-slate-50 p-4 rounded-2xl outline-none border-2 border-transparent focus:border-emerald-500" placeholder="Nominal Rp">
+                            <button onclick="processKas('IN')" class="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black">PROSES MASUK</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                        <h3 class="font-black text-red-600 mb-6 uppercase">Withdraw / Prive</h3>
+                        <div class="space-y-3">
+                            <select id="kas-out-type" class="w-full bg-slate-50 p-4 rounded-2xl outline-none border-2 border-transparent focus:border-red-500">
+                                <option value="WD_OWNER">Prive / Ambil Modal (-)</option>
+                                <option value="OPERASIONAL">Biaya Operasional (-)</option>
+                                <option value="TARIK_PROFIT">Penarikan Profit (-)</option>
+                            </select>
+                            <input type="number" id="kas-out-amt" class="w-full bg-slate-50 p-4 rounded-2xl outline-none border-2 border-transparent focus:border-red-500" placeholder="Nominal Rp">
+                            <button onclick="processKas('OUT')" class="w-full bg-red-600 text-white py-4 rounded-2xl font-black">PROSES KELUAR</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="max-w-xl mx-auto bg-slate-900 p-8 rounded-[3rem] text-center shadow-2xl">
+                    <h3 class="font-black text-emerald-400 mb-4 uppercase text-sm italic tracking-widest">Payroll System</h3>
+                    <p class="text-slate-400 text-xs mb-6 uppercase">Pembayaran Gaji Karyawan</p>
+                    <div class="space-y-4">
+                        <input type="number" id="gaji-amt" class="w-full bg-white/10 text-white p-5 rounded-2xl outline-none border border-white/20 text-center text-xl font-bold" placeholder="Total Gaji Rp">
+                        <button onclick="processGaji()" class="w-full bg-emerald-500 text-white py-4 rounded-2xl font-black hover:bg-emerald-400 transition">POSTING PEMBAYARAN GAJI</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="riwayat" class="tab-content space-y-6">
+                <div class="flex justify-between items-center bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+                    <h1 class="text-xl font-black uppercase tracking-tighter">Database Cloud</h1>
+                    <button onclick="resetDatabase()" class="bg-red-50 text-red-500 px-5 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest">Hapus Semua</button>
+                </div>
+                <div class="bg-white rounded-[2rem] border border-slate-100 overflow-x-auto shadow-sm">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-slate-400 text-[10px] font-black uppercase">
+                            <tr><th class="p-6">Waktu</th><th class="p-6">Keterangan</th><th class="p-6">Kategori</th><th class="p-6 text-right">Nominal</th><th class="p-6 text-center">Aksi</th></tr>
+                        </thead>
+                        <tbody id="tabel-transaksi"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            databaseURL: "https://grove-gear-cashflow-default-rtdb.asia-southeast1.firebasedatabase.app/" 
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let state = { transactions: [] };
+        const formatRp = (n) => "Rp " + new Intl.NumberFormat('id-ID').format(n);
+
+        // AUTH
+        document.getElementById('login-form').onsubmit = (e) => {
+            e.preventDefault();
+            if(document.getElementById('pass-input').value === "admin123") {
+                sessionStorage.setItem('isLoggedIn', 'true');
+                initApp();
+            } else { alert("PIN Salah!"); }
+        };
+
+        function initApp() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-shell').style.display = 'block';
+            syncData();
+        }
+
+        // SYNC DATA
+        function syncData() {
+            db.ref('transactions').on('value', (snapshot) => {
+                const data = snapshot.val();
+                state.transactions = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })).reverse() : [];
+                calculateAndUI();
+            });
+        }
+
+        function calculateAndUI() {
+            let atm = 0, modal = 0, profit = 0, omzet = 0;
+            const tbody = document.getElementById('tabel-transaksi');
+            tbody.innerHTML = '';
+
+            state.transactions.slice().reverse().forEach(t => {
+                atm += t.amount;
+                if(t.category === 'MODAL_OUT') modal += Math.abs(t.amount);
+                if(t.category === 'OMZET_IN') omzet += t.amount;
+                if(t.category === 'PROFIT_REAL') profit += t.amount;
+                
+                if(['GAJI_OUT', 'WD_OWNER', 'OPERASIONAL', 'TARIK_PROFIT'].includes(t.category)) {
+                    profit -= Math.abs(t.amount);
+                }
+            });
+
+            state.transactions.forEach(t => {
+                tbody.innerHTML += `
+                    <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                        <td class="p-6 text-[10px] text-slate-400 font-bold">${t.date}</td>
+                        <td class="p-6 font-bold text-sm">${t.desc}</td>
+                        <td class="p-6"><span class="px-2 py-1 bg-slate-100 rounded text-[9px] font-black uppercase text-slate-400">${t.category.replace('_',' ')}</span></td>
+                        <td class="p-6 text-right font-black ${t.amount >= 0 ? 'text-emerald-500' : 'text-red-500'}">${formatRp(t.amount)}</td>
+                        <td class="p-6 text-center"><button onclick="deleteData('${t.id}')" class="text-slate-200 hover:text-red-500"><i class="fas fa-trash"></i></button></td>
+                    </tr>`;
+            });
+
+            document.getElementById('display-atm').innerText = formatRp(atm);
+            document.getElementById('display-modal').innerText = formatRp(modal);
+            document.getElementById('display-profit').innerText = formatRp(profit);
+            document.getElementById('display-omzet').innerText = formatRp(omzet);
+            renderChart();
+        }
+
+        // ACTIONS
+        function processKas(dir) {
+            const amt = (dir === 'IN') ? parseFloat(document.getElementById('kas-in-amt').value) : parseFloat(document.getElementById('kas-out-amt').value);
+            const selectElement = (dir === 'IN') ? document.getElementById('kas-in-type') : document.getElementById('kas-out-type');
+            const type = selectElement.value;
+            const label = selectElement.options[selectElement.selectedIndex].text.split(' (')[0];
+
+            if(!amt) return alert("Masukkan nominal!");
+            
+            db.ref('transactions').push({
+                date: new Date().toLocaleString('id-ID'),
+                desc: label,
+                category: type,
+                amount: (dir === 'IN') ? amt : -Math.abs(amt)
+            });
+
+            if(dir === 'IN') {
+                document.getElementById('kas-in-amt').value = '';
+            } else {
+                document.getElementById('kas-out-amt').value = '';
+            }
+            alert("Data berhasil diposting!");
+        }
+
+        function processGaji() {
+            const amt = parseFloat(document.getElementById('gaji-amt').value);
+            if(!amt) return alert("Masukkan nominal!");
+            db.ref('transactions').push({
+                date: new Date().toLocaleString('id-ID'),
+                desc: 'Pembayaran Gaji Karyawan',
+                category: 'GAJI_OUT',
+                amount: -Math.abs(amt)
+            });
+            document.getElementById('gaji-amt').value = '';
+            alert("Gaji diposting!");
+        }
+
+        document.getElementById('form-penjualan').onsubmit = (e) => {
+            e.preventDefault();
+            const n = document.getElementById('p-nama').value;
+            const q = parseFloat(document.getElementById('p-qty').value);
+            const m = parseFloat(document.getElementById('p-modal').value) * q;
+            const j = parseFloat(document.getElementById('p-jual').value) * q;
+            const p = j - m;
+
+            db.ref('transactions').push({ date: new Date().toLocaleDateString(), desc: `Modal: ${n} (${q} unit)`, category: 'MODAL_OUT', amount: -m });
+            db.ref('transactions').push({ date: new Date().toLocaleDateString(), desc: `Jual: ${n} (${q} unit)`, category: 'OMZET_IN', amount: j });
+            db.ref('transactions').push({ date: new Date().toLocaleDateString(), desc: `Profit: ${n}`, category: 'PROFIT_REAL', amount: p });
+            
+            e.target.reset(); 
+            hitungProyeksi();
+        };
+
+        function deleteData(id) { if(confirm("Hapus?")) db.ref('transactions').child(id).remove(); }
+        function resetDatabase() { if(confirm("Hapus seluruh data?")) db.ref('transactions').remove(); }
+        function handleLogout() { sessionStorage.removeItem('isLoggedIn'); location.reload(); }
+
+        function openTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('bg-white', 'shadow-sm'));
+            document.getElementById(id).classList.add('active');
+            document.getElementById('btn-' + id).classList.add('bg-white', 'shadow-sm');
+        }
+
+        function hitungProyeksi() {
+            const m = parseFloat(document.getElementById('p-modal').value) || 0;
+            const q = parseFloat(document.getElementById('p-qty').value) || 0;
+            const j = parseFloat(document.getElementById('p-jual').value) || 0;
+            document.getElementById('proj-profit').innerText = formatRp((j - m) * q);
+        }
+
+        let myChart;
+        function renderChart() {
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            if(myChart) myChart.destroy();
+            const d = state.transactions.slice(0, 15).reverse();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: d.map(x => x.date.split(',')[0]),
+                    datasets: [{ label: 'Saldo', data: d.map(x => x.amount), borderColor: '#10b981', tension: 0.4, fill: true, backgroundColor: 'rgba(16, 185, 129, 0.05)' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+
+        window.onload = () => { if(sessionStorage.getItem('isLoggedIn')) initApp(); };
+    </script>
+</body>
+</html>
