@@ -177,32 +177,46 @@
             syncData();
         }
 
-        // SYNC DATA
         function syncData() {
             db.ref('transactions').on('value', (snapshot) => {
                 const data = snapshot.val();
-                state.transactions = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })).reverse() : [];
+                state.transactions = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })) : [];
                 calculateAndUI();
             });
         }
 
+        // --- LOGIKA TERBARU DI SINI ---
         function calculateAndUI() {
             let atm = 0, modal = 0, profit = 0, omzet = 0;
             const tbody = document.getElementById('tabel-transaksi');
             tbody.innerHTML = '';
 
-            state.transactions.slice().reverse().forEach(t => {
+            // Hitung dari awal (kronologis)
+            state.transactions.forEach(t => {
+                // 1. Saldo Bank (Semua t.amount diakumulasi)
                 atm += t.amount;
+
+                // 2. Hitung Modal Keluar
                 if(t.category === 'MODAL_OUT') modal += Math.abs(t.amount);
-                if(t.category === 'OMZET_IN') omzet += t.amount;
-                if(t.category === 'PROFIT_REAL') profit += t.amount;
+
+                // 3. Update: Kategori LAINNYA & OMZET_IN sekarang masuk ke Total Omzet
+                if(t.category === 'OMZET_IN' || t.category === 'LAINNYA') {
+                    omzet += Math.abs(t.amount);
+                }
+
+                // 4. Hitung Profit (Profit Real Penjualan + Pendapatan Lain)
+                if(t.category === 'PROFIT_REAL' || t.category === 'LAINNYA') {
+                    profit += Math.abs(t.amount);
+                }
                 
+                // 5. Kurangi Profit dengan Pengeluaran
                 if(['GAJI_OUT', 'WD_OWNER', 'OPERASIONAL', 'TARIK_PROFIT'].includes(t.category)) {
                     profit -= Math.abs(t.amount);
                 }
             });
 
-            state.transactions.forEach(t => {
+            // Render ke Tabel (Data terbaru di atas)
+            state.transactions.slice().reverse().forEach(t => {
                 tbody.innerHTML += `
                     <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
                         <td class="p-6 text-[10px] text-slate-400 font-bold">${t.date}</td>
@@ -236,12 +250,9 @@
                 amount: (dir === 'IN') ? amt : -Math.abs(amt)
             });
 
-            if(dir === 'IN') {
-                document.getElementById('kas-in-amt').value = '';
-            } else {
-                document.getElementById('kas-out-amt').value = '';
-            }
-            alert("Data berhasil diposting!");
+            if(dir === 'IN') document.getElementById('kas-in-amt').value = '';
+            else document.getElementById('kas-out-amt').value = '';
+            alert("Berhasil diproses!");
         }
 
         function processGaji() {
@@ -264,13 +275,15 @@
             const m = parseFloat(document.getElementById('p-modal').value) * q;
             const j = parseFloat(document.getElementById('p-jual').value) * q;
             const p = j - m;
+            const tgl = new Date().toLocaleString('id-ID');
 
-            db.ref('transactions').push({ date: new Date().toLocaleDateString(), desc: `Modal: ${n} (${q} unit)`, category: 'MODAL_OUT', amount: -m });
-            db.ref('transactions').push({ date: new Date().toLocaleDateString(), desc: `Jual: ${n} (${q} unit)`, category: 'OMZET_IN', amount: j });
-            db.ref('transactions').push({ date: new Date().toLocaleDateString(), desc: `Profit: ${n}`, category: 'PROFIT_REAL', amount: p });
+            db.ref('transactions').push({ date: tgl, desc: `Modal: ${n} (${q} unit)`, category: 'MODAL_OUT', amount: -m });
+            db.ref('transactions').push({ date: tgl, desc: `Jual: ${n} (${q} unit)`, category: 'OMZET_IN', amount: j });
+            db.ref('transactions').push({ date: tgl, desc: `Profit: ${n}`, category: 'PROFIT_REAL', amount: p });
             
             e.target.reset(); 
             hitungProyeksi();
+            alert("Penjualan disimpan!");
         };
 
         function deleteData(id) { if(confirm("Hapus?")) db.ref('transactions').child(id).remove(); }
@@ -295,12 +308,12 @@
         function renderChart() {
             const ctx = document.getElementById('financeChart').getContext('2d');
             if(myChart) myChart.destroy();
-            const d = state.transactions.slice(0, 15).reverse();
+            const d = state.transactions.slice(-15);
             myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: d.map(x => x.date.split(',')[0]),
-                    datasets: [{ label: 'Saldo', data: d.map(x => x.amount), borderColor: '#10b981', tension: 0.4, fill: true, backgroundColor: 'rgba(16, 185, 129, 0.05)' }]
+                    datasets: [{ label: 'Arus Kas', data: d.map(x => x.amount), borderColor: '#10b981', tension: 0.4, fill: true, backgroundColor: 'rgba(16, 185, 129, 0.05)' }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
