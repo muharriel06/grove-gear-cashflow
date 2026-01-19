@@ -58,11 +58,11 @@
             <div id="dashboard" class="tab-content active space-y-8">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
                     <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo Kas Aktif</p>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Saldo Kas Aktif (ATM)</p>
                         <p class="text-2xl font-black text-slate-900" id="display-atm">Rp 0</p>
                     </div>
                     <div class="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
-                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Modal</p>
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Modal Keluar</p>
                         <p class="text-2xl font-black text-orange-500" id="display-modal">Rp 0</p>
                     </div>
                     <div class="bg-white p-6 rounded-[2rem] border border-emerald-100 bg-emerald-50/20 shadow-sm">
@@ -153,6 +153,7 @@
     </div>
 
     <script>
+        // FIREBASE CONFIG
         const firebaseConfig = {
             databaseURL: "https://grove-gear-cashflow-default-rtdb.asia-southeast1.firebasedatabase.app/" 
         };
@@ -185,37 +186,42 @@
             });
         }
 
-        // --- LOGIKA TERBARU DI SINI ---
+        // LOGIKA PENGHITUNGAN SALDO (UPDATE)
         function calculateAndUI() {
-            let atm = 0, modal = 0, profit = 0, omzet = 0;
+            let atm = 0;      // Saldo Uang Fisik/Bank
+            let modal = 0;    // Akumulasi belanja stok
+            let profit = 0;   // Keuntungan bersih
+            let omzet = 0;    // Total penjualan
+            
             const tbody = document.getElementById('tabel-transaksi');
             tbody.innerHTML = '';
 
-            // Hitung dari awal (kronologis)
             state.transactions.forEach(t => {
-                // 1. Saldo Bank (Semua t.amount diakumulasi)
-                atm += t.amount;
+                const amt = parseFloat(t.amount);
+                
+                // 1. Update Saldo ATM (Menerima semua mutasi masuk/keluar)
+                atm += amt;
 
                 // 2. Hitung Modal Keluar
-                if(t.category === 'MODAL_OUT') modal += Math.abs(t.amount);
+                if(t.category === 'MODAL_OUT') modal += Math.abs(amt);
 
-                // 3. Update: Kategori LAINNYA & OMZET_IN sekarang masuk ke Total Omzet
+                // 3. Hitung Omzet (Jual + Pendapatan Lain)
                 if(t.category === 'OMZET_IN' || t.category === 'LAINNYA') {
-                    omzet += Math.abs(t.amount);
+                    omzet += Math.abs(amt);
                 }
 
-                // 4. Hitung Profit (Profit Real Penjualan + Pendapatan Lain)
+                // 4. Hitung Profit Bersih
                 if(t.category === 'PROFIT_REAL' || t.category === 'LAINNYA') {
-                    profit += Math.abs(t.amount);
+                    profit += Math.abs(amt);
                 }
                 
-                // 5. Kurangi Profit dengan Pengeluaran
+                // Kurangi Profit dengan pengeluaran operasional/gaji
                 if(['GAJI_OUT', 'WD_OWNER', 'OPERASIONAL', 'TARIK_PROFIT'].includes(t.category)) {
-                    profit -= Math.abs(t.amount);
+                    profit -= Math.abs(amt);
                 }
             });
 
-            // Render ke Tabel (Data terbaru di atas)
+            // Tampilkan ke tabel (Urutan terbaru)
             state.transactions.slice().reverse().forEach(t => {
                 tbody.innerHTML += `
                     <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
@@ -277,8 +283,11 @@
             const p = j - m;
             const tgl = new Date().toLocaleString('id-ID');
 
+            // 1. Potong ATM untuk modal stok barang (-)
             db.ref('transactions').push({ date: tgl, desc: `Modal: ${n} (${q} unit)`, category: 'MODAL_OUT', amount: -m });
+            // 2. Tambah ATM dari hasil penjualan (+)
             db.ref('transactions').push({ date: tgl, desc: `Jual: ${n} (${q} unit)`, category: 'OMZET_IN', amount: j });
+            // 3. Catat profit real
             db.ref('transactions').push({ date: tgl, desc: `Profit: ${n}`, category: 'PROFIT_REAL', amount: p });
             
             e.target.reset(); 
